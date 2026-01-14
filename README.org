@@ -1,0 +1,103 @@
+* C Datastructures
+C datastructures in single header files. They come in different flavors (typed, untyped).
+** DEQUE
+This header provides a small, header-only implementation of a double-ended queue (deque) backed by a dynamically resized circular array.
+
+It supports constant-time amortized insertion and removal at both ends and can be used either in a strongly typed way (macro-based) or as a generic void * container.
+
+The default mode is the typed implementation.
+
+*** Features
+- Header-only, no compilation unit required
+- O(1) amortized push and pop on both ends
+- Circular buffer implementation
+- Automatic resizing by capacity doubling
+- Optional compile-time type safety
+- No ownership over stored objects (pointers only)
+- Minimal and predictable memory model
+
+*** API
+- =deque_create=
+- =deque_destroy=
+- =deque_is_empty=
+- =deque_len=
+- =deque_get=
+- =deque_append=
+- =deque_push=
+- =deque_pop=
+- =deque_pop_last=
+*** Configuration
+
+By default, the typed macro-based deque is used.
+To enable the generic void * version, define:
+
+#+begin_src c
+#define DATASTRUCT_USE_VOID_BASED_DEQUE
+#+end_src
+
+before including deque.h.
+
+If this macro is not defined, the typed version is selected.
+
+You may define =DEQUE_INITIAL_SIZE= *after having included the header* (defaulted at 128) :
+#+begin_src c
+#define DEQUE_INITIAL_SIZE 16 
+#+end_src
+
+*** Typed version:
+#+begin_src c
+  #include "deque.h"
+  /* i_deque */
+  DEQUE_TYPEDECL(int, i)
+  DEQUE_IMPL(int, i)
+
+  int main(){
+    i_deque my_first_deque = i_deque_create();
+  }
+#+end_src
+
+#+begin_src c
+  typedef struct {
+      int value;
+  } Node;
+
+  /* Generating node_deque and its related functions : */
+  DEQUE_TYPEDECL(Node, node)
+  DEQUE_IMPL(Node, node)
+
+  int main(void) {
+    node_deque *dq = node_deque_create();
+
+    Node *a = malloc(sizeof(Node));
+    Node *b = malloc(sizeof(Node));
+    a->value = 1;
+    b->value = 2;
+
+    node_deque_append(dq, a); // back
+    node_deque_push(dq, b); // front
+
+    Node *x = node_deque_pop(dq); // b
+    Node *y = node_deque_pop_last(dq); // a
+
+    node_deque_destroy(dq);
+  }
+#+end_src
+
+*** (void *) version :
+
+#+begin_src c
+deque *dq = deque_create();
+
+int *a = malloc(sizeof(int));
+int *b = malloc(sizeof(int));
+*a = 10;
+*b = 20;
+
+deque_append(dq, a);
+deque_push(dq, b);
+
+int *x = deque_pop(dq);
+int *y = deque_pop_last(dq);
+
+deque_destroy(dq);
+#+end_src
