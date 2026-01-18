@@ -3,23 +3,29 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
+
+#define HASHMAP_INITIAL_SIZE (128)
+#define HASHMAP_THRESHOLD ((double)0.75)
 
 /*
 ╰┭━╾┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅╼━┮╮
 ╭╯ datastructures § hashmap → macro based implementation                    ╭╯╿
 ╙╼━╾┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄━━╪*/
 
-#define HASHMAP(kType, vType, name)\
-typedef struct name{ \
-  kType key; \
-  vType value; \
-  struct name *next; \
-} name; \
-typedef struct{ \
-  name **entries; \
-  uint64_t seed; \
-} \
-name##_map;
+#define HASHMAP(kType, vType, name)                                            \
+  typedef struct name {                                                        \
+    kType key;                                                                 \
+    uint64_t hash;                                                             \
+    vType value;                                                               \
+    struct name *next;                                                         \
+  } name;                                                                      \
+  typedef struct {                                                             \
+    name **entries;                                                            \
+    uint64_t seed;                                                             \
+    size_t width;                                                              \
+    size_t size;                                                               \
+  } name##_map;
 
 /*
 ╰┭━╾┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅╼━┮╮
@@ -29,6 +35,7 @@ name##_map;
 /* *(hashmap+hash("yourKey")) */
 typedef struct entry {
   char *key;
+  uint64_t hash;
   void *value;
   struct entry *next;
 } entry;
@@ -36,14 +43,15 @@ typedef struct entry {
 typedef struct {
   entry **buckets;
   uint64_t seed;
+  size_t width;
+  size_t size;
 } hashmap;
 
-
-/* 
+/*
 ╰┭━╾┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅╼━┮╮
 ╭╯ datastructures § hashmap → hashing functions                             ╭╯╿
 ╙╼━╾┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄━━╪*/
-  
+
 /* xxHash 64-bit like */
 static const uint64_t PRIME64_1 = 0x9E3779B185EBCA87ull;
 static const uint64_t PRIME64_2 = 0xC2B2AE3D27D4EB4Full;
@@ -136,6 +144,147 @@ static uint64_t datastruct_hash(void *data, size_t len, uint64_t seed) {
   acc = acc * PRIME64_3;
   acc = acc ^ (acc >> 32);
   return acc;
+}
+
+/*
+╰┭━╾┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅╼━┮╮
+╭╯ datastructures § hashmap → methods (untyped implementation)              ╭╯╿
+╙╼━╾┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄━━╪*/
+
+static bool __hashmap_check_load_factor(hashmap *hm) {
+  return (hm->size + 1) * 4 >= hm->width * 3;
+  /*return ((((double)hm->size + 1) / ((double)hm->width)) >
+   * HASHMAP_THRESHOLD);*/
+}
+
+static void __rehash_add_entry(entry *e, entry **nE, size_t nW) {
+  uint64_t new_hash = e->hash % nW;
+  e->next = nE[new_hash];
+  nE[new_hash] = e;
+}
+
+static bool __hashmap_resize_width(hashmap *hm) {
+  if (hm->width > (SIZE_MAX) / 2 / sizeof(entry *)) {
+    return false;
+  }
+  size_t new_width = hm->width * 2;
+  entry **new_entries = (entry **)calloc(new_width, sizeof(entry *));
+
+  if (!new_entries)
+    return false;
+
+  for (size_t i = 0; i < hm->width; i++) {
+    entry *e = hm->buckets[i];
+    while (e) {
+      entry *next = e->next;
+      __rehash_add_entry(e, new_entries, new_width);
+      e = next;
+    }
+  }
+  free(hm->buckets);
+  hm->buckets = new_entries;
+  hm->width = new_width;
+  return true;
+}
+
+static hashmap *hashmap_new(uint64_t seed) {
+  hashmap *hm = (hashmap *)malloc(sizeof(hashmap));
+  if (!hm)
+    return NULL;
+  hm->width = HASHMAP_INITIAL_SIZE;
+  hm->seed = seed;
+  hm->size = 0;
+  hm->buckets = (entry **)calloc(hm->width, sizeof(entry *));
+  if (!hm->buckets) {
+    free(hm);
+    return NULL;
+  }
+  return hm;
+}
+
+static bool hashmap_put(hashmap *hm, char *key, void *value) {
+  if (__hashmap_check_load_factor(hm)) {
+    if (__hashmap_resize_width(hm)) {
+      return false;
+    }
+  }
+  size_t len = 0;
+  for (; key[len]; len++)
+    ;
+
+  uint64_t hash = datastruct_hash(key, len, hm->seed);
+  uint64_t idx = hash % hm->width;
+  for (entry *e = hm->buckets[idx]; e; e = e->next) {
+    if (e->hash == hash && strcmp(key, e->key) == 0) {
+      e->value = value;
+      return true;
+    }
+  }
+  entry *e = (entry *)malloc(sizeof(entry));
+  if (!e)
+    return false;
+  e->hash = hash;
+  e->key = key;
+  e->value = value;
+  e->next = hm->buckets[idx];
+  hm->buckets[idx] = e;
+  hm->size++;
+  return true;
+}
+
+static void *hashmap_get(hashmap *hm, char *key) {
+  size_t len = 0;
+  for (; key[len]; len++)
+    ;
+  uint64_t hash = datastruct_hash(key, len, hm->seed);
+  size_t idx = hash % hm->width;
+  for (entry *e = hm->buckets[idx]; e; e = e->next) {
+    if (e->hash == hash && strcmp(key, e->key) == 0) {
+      return e->value;
+    }
+  }
+  return NULL;
+}
+
+static bool hashmap_delete(hashmap *hm, char *key) {
+  size_t len = 0;
+  for (; key[len]; len++)
+    ;
+  uint64_t hash = datastruct_hash(key, len, hm->seed);
+  size_t idx = hash % hm->width;
+  entry *prev = NULL;
+  entry *e = hm->buckets[idx];
+
+  while (e) {
+    if (e->hash == hash && strcmp(e->key, key)) {
+      if (prev) {
+        prev->next = e->next;
+      } else {
+        hm->buckets[idx] = e->next;
+      }
+      free(e);
+      hm->size--;
+      return true;
+    }
+    prev = e;
+    e = e->next;
+  }
+  return false;
+}
+
+static void hashmap_destroy(hashmap *hm) {
+  if (!hm)
+    return;
+  for (size_t i = 0; i < hm->width; i++) {
+    entry *e = hm->buckets[i];
+    while (e) {
+      entry *next = e->next;
+      free(e);
+      e = next;
+    }
+  }
+  free(hm->buckets);
+  free(hm);
 }
 
 #endif
