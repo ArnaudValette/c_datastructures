@@ -101,3 +101,108 @@ int *y = deque_pop_last(dq);
 
 deque_destroy(dq);
 #+end_src
+** HASHMAP
+This header provides a small, header-only implementation of a chained hashmap with automatic resizing.
+
+It uses separate chaining with linked lists and a 64-bit hash function inspired by xxHash.
+The implementation is available in two forms:
+
+- a macro-based typed version (*note* : /work-in-progress/)
+- and a simpler, untyped =(char *)->(void *)= based version.
+
+The hashmap does not own keys or values: it only stores pointers. Memory ownership stays with the caller.
+
+*** Features
+
+- Header-only, no compilation unit required
+- Separate chaining collision handling
+- O(1) amortized insertion, lookup, and deletion
+- Automatic resizing by capacity doubling
+- 64-bit hash function (xxHash-like)
+- No ownership over stored keys or values
+- Predictable memory model
+
+*** Data model
+Each entry is:
+
+#+begin_src c
+typedef struct entry {
+  char *key;
+  uint64_t hash;
+  void *value;
+  struct entry *next;
+} entry;
+
+#+end_src
+
+The hashmap itself is:
+
+#+begin_src c
+typedef struct {
+  entry **buckets;
+  uint64_t seed;
+  size_t width;
+  size_t size;
+} hashmap;
+#+end_src
+
+
+*** Configuration
+
+You may redefine:
+
+#+begin_src c
+#define HASHMAP_INITIAL_SIZE 128
+#+end_src
+
+
+The integer-only load factor check currently corresponds to 0.75.
+
+*** API
+
+- =hashmap_new=
+- =hashmap_destroy=
+- =hashmap_put=
+- =hashmap_get=
+- =hashmap_delete=
+
+All functions are static and header-only.
+
+*** Ownership model
+
+The hashmap does not own keys or values.
+
+You must ensure keys remain valid while stored.
+You must free keys/values yourself if they were dynamically allocated.
+
+*** Example
+
+#+begin_src c
+hashmap *hm = hashmap_new(0xdeadbeef);
+
+int *a = malloc(sizeof(int));
+*a = 10;
+
+int *b = malloc(sizeof(int));
+*b = 20;
+
+hashmap_put(hm, "foo", a);
+hashmap_put(hm, "bar", b);
+
+int *x = hashmap_get(hm, "foo"); // 10
+int *y = hashmap_get(hm, "bar"); // 20
+
+hashmap_delete(hm, "foo");
+
+hashmap_destroy(hm);
+
+/* free values manually */
+free(a);
+free(b);
+#+end_src
+
+*** Notes
+
+- Hashes are stored in entries to avoid recomputation during resize.
+- Resizing performs a full rehash into a new bucket table.
+- Collision handling uses simple head insertion for cache efficiency.
