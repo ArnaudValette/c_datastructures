@@ -108,9 +108,7 @@ It uses separate chaining with linked lists and a 64-bit hash function inspired 
 The implementation is available in two forms:
 
 - a macro-based typed version (*note* : /work-in-progress/)
-- and a simpler, untyped =(char *)->(void *)= based version.
-
-The hashmap does not own keys or values: it only stores pointers. Memory ownership stays with the caller.
+- and a simpler, untyped =(void *)->(void *)= based version.
 
 *** Features
 
@@ -127,7 +125,8 @@ Each entry is:
 
 #+begin_src c
 typedef struct entry {
-  char *key;
+  void *key;
+  size_t key_len;
   uint64_t hash;
   void *value;
   struct entry *next;
@@ -160,45 +159,92 @@ The integer-only load factor check currently corresponds to 0.75.
 
 *** API
 
-- =hashmap_new=
-- =hashmap_destroy=
-- =hashmap_put=
-- =hashmap_get=
-- =hashmap_delete=
+- =hashmap_new(uint64_t seed)=
+- =hashmap_destroy(hashmap *hm)=
+- =hashmap_put(hashmap *hm, void *key, size_t key_len, void *value)=
+- =hashmap_get(hashmap *hm, void *key, size_t key_len)=
+- =hashmap_delete(hashmap *hm, void *key, size_t key_len)=
 
 All functions are static and header-only.
 
 *** Ownership model
 
-The hashmap does not own keys or values.
+The hashmap *does* own keys.
+The hasmap *does not* own values.
 
-You must ensure keys remain valid while stored.
-You must free keys/values yourself if they were dynamically allocated.
+You must ensure values remain valid while stored.
+You must free values yourself if they were dynamically allocated.
 
 *** Example
 
 #+begin_src c
-hashmap *hm = hashmap_new(0xdeadbeef);
+  hashmap *hm1 = hashmap_new(0xdeadbeef);
 
-int *a = malloc(sizeof(int));
-*a = 10;
+  int *a = malloc(sizeof(int));
+  ,*a = 10;
 
-int *b = malloc(sizeof(int));
-*b = 20;
+  int *b = malloc(sizeof(int));
+  ,*b = 20;
 
-hashmap_put(hm, "foo", a);
-hashmap_put(hm, "bar", b);
+  hashmap_put(hm1, "foo", 3, a);
+  hashmap_put(hm1, "bar", 3, b);
 
-int *x = hashmap_get(hm, "foo"); // 10
-int *y = hashmap_get(hm, "bar"); // 20
+  int *x = hashmap_get(hm1, "foo", 3); // 10
+  int *y = hashmap_get(hm1, "bar", 3); // 20
 
-hashmap_delete(hm, "foo");
+  hashmap_delete(hm1, "foo", 3);
 
-hashmap_destroy(hm);
+  hashmap_destroy(hm1);
 
-/* free values manually */
-free(a);
-free(b);
+  /* free values manually */
+  free(a);
+  free(b);
+
+  typedef struct {
+    int    id;
+    double score;
+    char   tag[8];
+  } Key;
+
+  typedef struct {
+    char name[32];
+    int  level;
+  } Value;
+
+  hashmap *hm2 = hashmap_new(0xdeadbeef);
+
+  /* create some keys */
+  Key k1 = {
+    .id = 1,
+    .score = 42.5,
+    .tag = "alpha"
+  };
+
+  Key k2 = {
+    .id = 2,
+    .score = 13.37,
+    .tag = "beta"
+  };
+
+  /* create some values */
+  Value *v1 = malloc(sizeof(Value));
+  strcpy(v1->name, "first object");
+  v1->level = 10;
+
+  Value *v2 = malloc(sizeof(Value));
+  strcpy(v2->name, "second object");
+  v2->level = 20;
+
+  /* insert */
+  hashmap_put(hm2, &k1, sizeof(Key), v1);
+  hashmap_put(hm2, &k2, sizeof(Key), v2);
+
+  /*
+    At this point:
+    - the hashmap has copied the raw bytes of k1 and k2
+    - it does NOT store &k1 or &k2
+    - it owns its internal copies
+  ,*/
 #+end_src
 
 *** Notes
