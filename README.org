@@ -1,5 +1,9 @@
 * C Datastructures
 C datastructures in single header files. They come in different flavors (typed, untyped).
+* Table of Contents
+- [[#DEQUE][DEQUE]]
+- [[#HASHMAP][HASHMAP]]
+---------------
 ** DEQUE
 This header provides a small, header-only implementation of a double-ended queue (deque) backed by a dynamically resized circular array.
 
