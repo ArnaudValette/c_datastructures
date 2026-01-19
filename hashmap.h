@@ -6,7 +6,6 @@
 #include <string.h>
 
 #define HASHMAP_INITIAL_SIZE (128)
-#define HASHMAP_THRESHOLD ((double)0.75)
 
 /*
 ╰┭━╾┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅╼━┮╮
