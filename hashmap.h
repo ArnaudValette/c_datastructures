@@ -296,6 +296,20 @@ static bool hashmap_delete(hashmap *hm, void *key, size_t len) {
   return false;
 }
 
+static void * hashmap_find_all_predicate(hashmap *hm, void *fun(hashmap *)){
+  /*
+    TODO
+  for (size_t i = 0; i < hm->width; i++) {
+    entry *e = hm->buckets[i];
+    while (e) {
+      entry *next = e->next;
+      e = next;
+    }
+  }
+  */
+  return NULL;
+}
+
 static void hashmap_destroy(hashmap *hm) {
   if (!hm)
     return;
