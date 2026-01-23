@@ -13,12 +13,23 @@
 ╭╯ datastructures § hashmap → macro based implementation                    ╭╯╿
 ╙╼━╾┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄━━╪*/
 
+static bool __hashmap_key_str_compare(char *key1_str, size_t len1,
+                                      char *key2_str, size_t len2) {
+  if (len2 != len1) return false;
+  uint8_t *b1 = (uint8_t *)key1_str;
+  uint8_t *b2 = (uint8_t *)key2_str;
+  for (size_t i = 0; i < len1; i++) {
+    if (b1[i] != b2[i]) return false;
+  }
+  return true;
+}
+
 #define HASHMAP(kType, vType, name)                                            \
   typedef struct name {                                                        \
-    kType key;                                                                 \
+    char* key_str;                                                             \
     size_t key_len;                                                            \
     uint64_t hash;                                                             \
-    vType value;                                                               \
+    vType *value;                                                              \
     struct name *next;                                                         \
   } name;                                                                      \
   typedef struct {                                                             \
@@ -26,7 +37,158 @@
     uint64_t seed;                                                             \
     size_t width;                                                              \
     size_t size;                                                               \
-  } name##_map;
+  } name##_hashmap; \
+ \
+char *name##_key_string(kType *k); \
+ \
+static bool name##__hashmap_check_load_factor(name##_hashmap *hm) { \
+  return (hm->size + 1) * 4 >= hm->width * 3; \
+} \
+ \
+static void name##__rehash_add_entry(name *e, name **nE, size_t nW) { \
+  uint64_t new_hash = e->hash % nW; \
+  e->next = nE[new_hash]; \
+  nE[new_hash] = e; \
+} \
+ \
+static bool name##__hashmap_resize_width(name##_hashmap *hm) { \
+  if (hm->width > (SIZE_MAX) / 2 / sizeof(name *)) { \
+    return false; \
+  } \
+  size_t new_width = hm->width * 2; \
+  name **new_entries = (name **)calloc(new_width, sizeof(name *)); \
+ \
+  if (!new_entries) return false; \
+ \
+  for (size_t i = 0; i < hm->width; i++) { \
+    name *e = hm->entries[i]; \
+    while (e) { \
+      name *next = e->next; \
+      name##__rehash_add_entry(e, new_entries, new_width); \
+      e = next; \
+    } \
+  } \
+  free(hm->entries); \
+  hm->entries = new_entries; \
+  hm->width = new_width; \
+  return true; \
+} \
+ \
+static name##_hashmap *name##_hashmap_new(uint64_t seed) { \
+  name##_hashmap *hm = (name##_hashmap *)malloc(sizeof(name##_hashmap)); \
+  if (!hm) return NULL; \
+  hm->width = HASHMAP_INITIAL_SIZE; \
+  hm->seed = seed; \
+  hm->size = 0; \
+  hm->entries = (name **)calloc(hm->width, sizeof(name *)); \
+  if (!hm->entries) { \
+    free(hm); \
+    return NULL; \
+  } \
+  return hm; \
+} \
+ \
+static bool name##_hashmap_put(name##_hashmap *hm, kType *key, vType *value) { \
+  name *ne; \
+  if (name##__hashmap_check_load_factor(hm)) { \
+    if (!name##__hashmap_resize_width(hm)) { \
+      return false; \
+    } \
+  } \
+ \
+  char *key_str = name##_key_string(key); \
+  size_t len = 0; \
+  for (; key_str[len]; len++) \
+    ; \
+ \
+  uint64_t hash = datastruct_hash(key_str, len, hm->seed); \
+  size_t idx = hash % hm->width; \
+  for (name *e = hm->entries[idx]; e; e = e->next) { \
+    if (e->hash == hash && \
+        __hashmap_key_str_compare(key_str, len, e->key_str, e->key_len)) { \
+      e->value = value; \
+      return true; \
+    } \
+  } \
+  ne = (name *)malloc(sizeof(name)); \
+  if (!ne) return false; \
+  ne->hash = hash; \
+ \
+  ne->key_str = malloc(len + 1); \
+  if (!ne->key_str) { \
+    free(ne); \
+    return false; \
+  } \
+  memcpy(ne->key_str, key_str, len); \
+  ne->key_str[len] = '\0'; \
+  ne->key_len = len; \
+  ne->value = value; \
+  ne->next = hm->entries[idx]; \
+  hm->entries[idx] = ne; \
+  hm->size++; \
+  return true; \
+} \
+ \
+static vType *name##_hashmap_get(name##_hashmap *hm, kType *key) { \
+  char *key_str = name##_key_string(key); \
+  size_t len = 0; \
+  for (; key_str[len]; len++) \
+    ; \
+  uint64_t hash = datastruct_hash(key_str, len, hm->seed); \
+  uint64_t idx = hash % hm->width; \
+ \
+  for (name *e = hm->entries[idx]; e; e = e->next) { \
+    if (e->hash == hash && \
+        __hashmap_key_str_compare(key_str, len, e->key_str, e->key_len)) { \
+      return e->value; \
+    } \
+  } \
+  return NULL; \
+} \
+ \
+static bool name##_hashmap_delete(name##_hashmap *hm, kType *key) { \
+  char *key_str = name##_key_string(key); \
+  size_t len = 0; \
+  for (; key_str[len]; len++) \
+    ; \
+  uint64_t hash = datastruct_hash(key_str, len, hm->seed); \
+  size_t idx = hash % hm->width; \
+  name *prev = NULL; \
+  name *e = hm->entries[idx]; \
+ \
+  while (e) { \
+    if (e->hash == hash && \
+        __hashmap_key_str_compare(key_str, len, e->key_str, e->key_len)) { \
+      if (prev) { \
+        prev->next = e->next; \
+      } else { \
+        hm->entries[idx] = e->next; \
+      } \
+      free(e->key_str); \
+      free(e); \
+      hm->size--; \
+      return true; \
+    } \
+    prev = e; \
+    e = e->next; \
+  } \
+  return false; \
+} \
+ \
+static void name##_hashmap_destroy(name##_hashmap *hm) { \
+  if (!hm) return; \
+  for (size_t i = 0; i < hm->width; i++) { \
+    name *e = hm->entries[i]; \
+    while (e) { \
+      name *next = e->next; \
+      free(e->key_str); \
+      free(e); \
+      e = next; \
+    } \
+  } \
+  free(hm->entries); \
+  free(hm); \
+} \
 
 /*
 ╰┭━╾┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅╼━┮╮
