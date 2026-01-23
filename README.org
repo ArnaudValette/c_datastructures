@@ -112,7 +112,7 @@ It uses separate chaining with linked lists and a 64-bit hash function inspired 
 The implementation is available in two forms:
 
 - a macro-based typed version (*note* : /work-in-progress/)
-- and a simpler, untyped =(void *)->(void *)= based version.
+- and a simpler, untyped =(void *)->(void *)= based version (*note* : key handling may be wrong when using reference types /work-in-progress/).
 
 *** Features
 
@@ -121,7 +121,7 @@ The implementation is available in two forms:
 - O(1) amortized insertion, lookup, and deletion
 - Automatic resizing by capacity doubling
 - 64-bit hash function (xxHash-like)
-- No ownership over stored keys or values
+- No ownership over stored values
 - Predictable memory model
 
 *** Data model
