@@ -111,23 +111,31 @@ This header provides a small, header-only implementation of a chained hashmap wi
 It uses separate chaining with linked lists and a 64-bit hash function inspired by xxHash.
 The implementation is available in two forms:
 
-- a macro-based typed version (*note* : /work-in-progress/)
-- and a simpler, untyped =(void *)->(void *)= based version.
+- a macro-based typed version
+- and a simpler, untyped =(void *)->(void *)= based version
 
 ----------
 
 *Note*: 
 
-In the untyped implementation, *keys are treated as opaque byte sequences*.
+In both implementations, *keys are treated as opaque byte sequences*.
 Key equality and hashing operate solely on the provided (pointer, length) pair.
+No assumptions are made about the logical structure of keys beyond their byte representation.
 
 If your logical key is not already a flat, self-contained byte sequence, *it is the caller’s responsibility* to linearize it. 
 
+
+In the case of the typed implementation, the user must provide :
+ - =uint8_t *name##_key_bytes(kType *key, size_t *len)=
+This function must return a canonical byte representation of the key.
+The returned buffer must remain valid after the function returns, for the duration of the hashmap operation.
+
+
 ----------
 
-For example, if a key is a struct containing pointers, you must either:
+In the case of the untyped implementation, if a key is a struct containing pointers, you must either:
 1. accept that pointer values participate in key identity,
-2. or provide your own canonical serialization of the key data.
+2. or provide your own canonical serialization of the key data (see the examples).
 
 *** Features
 
@@ -194,12 +202,13 @@ The hasmap *does not* own values.
 You must ensure values remain valid while stored.
 You must free values yourself if they were dynamically allocated.
 
-Keys are copied into freshly allocated memory. Depending on the key policy you choose to enforce with the untyped implementation, you may be confronted with two problems.
+Keys are copied into freshly allocated memory.
+Depending on the key policy you choose to enforce, you may be confronted with two problems.
 
 – If you provide unlinearized keys (e.g. structs containing pointers), key identity will incorporate pointer values rather than the data they reference. Two logically identical keys allocated at different addresses will be treated as distinct keys.
 – If you provide linearized keys, the fact that keys are copied means this implementation cannot be used as a =tuple= (in particular, a =pair=) indexed by a first element whose value is expected to change over time. Once inserted, key identity is fixed and will not track external mutations.
 
-*** Example
+*** Examples
 
 #+begin_src c
   hashmap *hm1 = hashmap_new(0xdeadbeef);
