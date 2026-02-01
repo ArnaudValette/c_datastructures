@@ -135,6 +135,7 @@ static bool __hashmap_key_compare(uint8_t *b1, size_t len1, uint8_t *b2,
  * The user must provide:
  *
  *   uint8_t *name##_key_bytes(kType *key, size_t *len);
+ *   void name##_tkey_dispose_hook(uint8_t *key);
  *
  * This function must return a canonical byte representation of the key.
  * The returned buffer must remain valid after the function returns, for
@@ -158,6 +159,7 @@ static bool __hashmap_key_compare(uint8_t *b1, size_t len1, uint8_t *b2,
   } name##_hashmap;                                                            \
                                                                                \
   uint8_t *name##_key_bytes(kType *k, size_t *len);                            \
+  void name##_tkey_dispose_hook(uint8_t *key);                                 \
                                                                                \
   static bool name##__hashmap_check_load_factor(name##_hashmap *hm) {          \
     return (hm->size + 1) * 4 >= hm->width * 3;                                \
@@ -226,17 +228,21 @@ static bool __hashmap_key_compare(uint8_t *b1, size_t len1, uint8_t *b2,
       if (e->hash == hash &&                                                   \
           __hashmap_key_compare(key_bytes, len, e->key, e->key_len)) {         \
         e->value = value;                                                      \
+        name##_tkey_dispose_hook(key_bytes);                                   \
         return true;                                                           \
       }                                                                        \
     }                                                                          \
     ne = (name *)malloc(sizeof(name));                                         \
-    if (!ne)                                                                   \
+    if (!ne) {                                                                 \
+      name##_tkey_dispose_hook(key_bytes);                                     \
       return false;                                                            \
+    }                                                                          \
     ne->hash = hash;                                                           \
                                                                                \
     ne->key = malloc(len);                                                     \
     if (!ne->key) {                                                            \
       free(ne);                                                                \
+      name##_tkey_dispose_hook(key_bytes);                                     \
       return false;                                                            \
     }                                                                          \
     memcpy(ne->key, key_bytes, len);                                           \
@@ -245,6 +251,7 @@ static bool __hashmap_key_compare(uint8_t *b1, size_t len1, uint8_t *b2,
     ne->next = hm->entries[idx];                                               \
     hm->entries[idx] = ne;                                                     \
     hm->size++;                                                                \
+    name##_tkey_dispose_hook(key_bytes);                                       \
     return true;                                                               \
   }                                                                            \
                                                                                \
@@ -257,9 +264,11 @@ static bool __hashmap_key_compare(uint8_t *b1, size_t len1, uint8_t *b2,
     for (name *e = hm->entries[idx]; e; e = e->next) {                         \
       if (e->hash == hash &&                                                   \
           __hashmap_key_compare(key_bytes, len, e->key, e->key_len)) {         \
+        name##_tkey_dispose_hook(key_bytes);                                   \
         return e->value;                                                       \
       }                                                                        \
     }                                                                          \
+    name##_tkey_dispose_hook(key_bytes);                                       \
     return NULL;                                                               \
   }                                                                            \
                                                                                \
@@ -282,11 +291,13 @@ static bool __hashmap_key_compare(uint8_t *b1, size_t len1, uint8_t *b2,
         free(e->key);                                                          \
         free(e);                                                               \
         hm->size--;                                                            \
+        name##_tkey_dispose_hook(key_bytes);                                   \
         return true;                                                           \
       }                                                                        \
       prev = e;                                                                \
       e = e->next;                                                             \
     }                                                                          \
+    name##_tkey_dispose_hook(key_bytes);                                       \
     return false;                                                              \
   }                                                                            \
                                                                                \
