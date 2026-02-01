@@ -11,6 +11,7 @@ It supports constant-time amortized insertion and removal at both ends and can b
 
 The default mode is the typed implementation.
 
+----------
 *** Features
 - Header-only, no compilation unit required
 - O(1) amortized push and pop on both ends
@@ -20,6 +21,7 @@ The default mode is the typed implementation.
 - No ownership over stored objects (pointers only)
 - Minimal and predictable memory model
 
+----------
 *** API
 - =deque_create=
 - =deque_destroy=
@@ -30,6 +32,7 @@ The default mode is the typed implementation.
 - =deque_push=
 - =deque_pop=
 - =deque_pop_last=
+----------
 *** Configuration
 
 By default, the typed macro-based deque is used.
@@ -48,6 +51,7 @@ You may define =DEQUE_INITIAL_SIZE= *after having included the header* (defaulte
 #define DEQUE_INITIAL_SIZE 16 
 #+end_src
 
+----------
 *** Typed version:
 #+begin_src c
   #include "deque.h"
@@ -87,6 +91,7 @@ You may define =DEQUE_INITIAL_SIZE= *after having included the header* (defaulte
   }
 #+end_src
 
+----------
 *** (void *) version :
 
 #+begin_src c
@@ -105,6 +110,7 @@ int *y = deque_pop_last(dq);
 
 deque_destroy(dq);
 #+end_src
+----------
 ** HASHMAP
 This header provides a small, header-only implementation of a chained hashmap with automatic resizing.
 
@@ -142,6 +148,7 @@ In the case of the *untyped implementation*, if a key is a struct containing poi
 1. accept that pointer values participate in key identity,
 2. or provide your own canonical serialization of the key data (see the examples).
 
+----------
 *** Features
 
 - Header-only, no compilation unit required
@@ -152,6 +159,7 @@ In the case of the *untyped implementation*, if a key is a struct containing poi
 - No ownership over stored values
 - Predictable memory model
 
+----------
 *** Data model
 Each entry is:
 
@@ -177,6 +185,7 @@ typedef struct {
 } hashmap;
 #+end_src
 
+----------
 
 *** Configuration
 
@@ -188,7 +197,7 @@ You may redefine:
 
 
 The integer-only load factor check currently corresponds to 0.75.
-
+----------
 *** API
 
 - =hashmap_new(uint64_t seed)=
@@ -199,6 +208,7 @@ The integer-only load factor check currently corresponds to 0.75.
 
 All functions are static and header-only.
 
+----------
 *** Ownership model
 
 The hashmap *does* own keys.
@@ -210,9 +220,10 @@ You must free values yourself if they were dynamically allocated.
 Keys are copied into freshly allocated memory.
 Depending on the key policy you choose to enforce, you may be confronted with two problems.
 
-– If you provide unlinearized keys (e.g. structs containing pointers), key identity will incorporate pointer values rather than the data they reference. Two logically identical keys allocated at different addresses will be treated as distinct keys.
-– If you provide linearized keys, the fact that keys are copied means this implementation cannot be used as a =tuple= (in particular, a =pair=) indexed by a first element whose value is expected to change over time. Once inserted, key identity is fixed and will not track external mutations.
+- If you provide unlinearized keys (e.g. structs containing pointers), key identity will incorporate pointer values rather than the data they reference. Two logically identical keys allocated at different addresses will be treated as distinct keys.
+- If you provide linearized keys, the fact that keys are copied means this implementation cannot be used as a =tuple= (in particular, a =pair=) indexed by a first element whose value is expected to change over time. Once inserted, key identity is fixed and will not track external mutations.
 
+----------
 *** Examples
 
 **** Untyped hashamp with explicit byte keys
@@ -275,6 +286,7 @@ Depending on the key policy you choose to enforce, you may be confronted with tw
   ,*/
 #+end_src
 
+----------
 **** Non-flat keys (untyped version)
 #+begin_src c
   typedef struct {
@@ -309,6 +321,7 @@ Depending on the key policy you choose to enforce, you may be confronted with tw
   hashmap_put(hm1, key_bytes, len, value);
   /* key_bytes may now be freed or reused */
 #+end_src 
+----------
 **** Non-flat keys (typed version)
 #+begin_src c
   typedef struct {
@@ -382,6 +395,7 @@ Depending on the key policy you choose to enforce, you may be confronted with tw
   free(name_buf);
 #+end_src
 
+----------
 *** Notes
 
 - Hashes are stored in entries to avoid recomputation during resize.
