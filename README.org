@@ -124,16 +124,21 @@ No assumptions are made about the logical structure of keys beyond their byte re
 
 If your logical key is not already a flat, self-contained byte sequence, *it is the caller’s responsibility* to linearize it. 
 
+-----------
 
-In the case of the typed implementation, the user must provide :
+In the case of the *typed implementation*, the user must provide :
  - =uint8_t *name##_key_bytes(kType *key, size_t *len)=
-This function must return a canonical byte representation of the key.
-The returned buffer must remain valid after the function returns, for the duration of the hashmap operation.
+ - =uint8_t *name##_tkey_dispose_hook(uint8_t *k)=
 
+The =..._key_bytes= function must return a canonical byte representation of the key.
+The returned buffer must remain valid after the function returns, for the duration of the hashmap operation. The hashmap will hash the returned bytes, copy them internally, and will not retain the returned pointer.
+
+
+To support arbitrary allocation strategies, =..._tkey_dispose_hook= is invoked exactly once for each buffer returned by =..._key_bytes=, once the hashmap no longer needs it. This hook may free the buffer, recycle it, or be a no-op, depending on how the temporary key representation was produced.
 
 ----------
 
-In the case of the untyped implementation, if a key is a struct containing pointers, you must either:
+In the case of the *untyped implementation*, if a key is a struct containing pointers, you must either:
 1. accept that pointer values participate in key identity,
 2. or provide your own canonical serialization of the key data (see the examples).
 
@@ -210,23 +215,23 @@ Depending on the key policy you choose to enforce, you may be confronted with tw
 
 *** Examples
 
+**** Untyped hashamp with explicit byte keys
 #+begin_src c
   hashmap *hm1 = hashmap_new(0xdeadbeef);
 
   int *a = malloc(sizeof(int));
-  ,*a = 10;
-
   int *b = malloc(sizeof(int));
-  ,*b = 20;
+  *a = 10;
+  *b = 20;
 
+  /* keys are explicit byte sequences */
   hashmap_put(hm1, "foo", 3, a);
   hashmap_put(hm1, "bar", 3, b);
 
-  int *x = hashmap_get(hm1, "foo", 3); // 10
-  int *y = hashmap_get(hm1, "bar", 3); // 20
+  int *x = hashmap_get(hm1, "foo", 3); /* → 10 */
+  int *y = hashmap_get(hm1, "bar", 3); /* → 20 */
 
   hashmap_delete(hm1, "foo", 3);
-
   hashmap_destroy(hm1);
 
   /* free values manually */
@@ -247,28 +252,18 @@ Depending on the key policy you choose to enforce, you may be confronted with tw
   hashmap *hm2 = hashmap_new(0xdeadbeef);
 
   /* create some keys */
-  Key k1 = {
-    .id = 1,
-    .score = 42.5,
-    .tag = "alpha"
-  };
-
-  Key k2 = {
-    .id = 2,
-    .score = 13.37,
-    .tag = "beta"
-  };
+  Key k1 = {.id = 1, .score = 42.5, .tag = "alpha"};
+  Key k2 = {.id = 2, .score = 13.37, .tag = "beta"};
 
   /* create some values */
   Value *v1 = malloc(sizeof(Value));
-  strcpy(v1->name, "first object");
-  v1->level = 10;
-
   Value *v2 = malloc(sizeof(Value));
+  strcpy(v1->name, "first object");
   strcpy(v2->name, "second object");
+  v1->level = 10;
   v2->level = 20;
 
-  /* insert */
+  /* key are already flat and contains no pointers */
   hashmap_put(hm2, &k1, sizeof(Key), v1);
   hashmap_put(hm2, &k2, sizeof(Key), v2);
 
@@ -278,6 +273,113 @@ Depending on the key policy you choose to enforce, you may be confronted with tw
     - it does NOT store &k1 or &k2
     - it owns its internal copies
   ,*/
+#+end_src
+
+**** Non-flat keys (untyped version)
+#+begin_src c
+  typedef struct {
+    int id;
+    char *name; /* pointer */
+  } Key;
+
+  /* Implement your own serializer for Key */
+  uint8_t *my_keys_as_bytes(Key *k, size_t *len)
+  {
+    size_t n = strlen(k->name);
+    *len = sizeof(int) + n;
+    uint8_t *buf = malloc(*len);
+    memcpy(buf, &k->id, sizeof(int));
+    memcpy(buf + sizeof(int), k->name, n);
+    return buf;
+  }
+
+  /* ... */
+
+  hashmap *hm1 = hashmap_new(0xdeadbeef);
+
+  char *buf = malloc(...);
+
+  /* ... */
+
+  Key key = { .id = 0, .name = buf};
+  char *value = "test";
+
+  size_t len=0;
+  uint8_t *key_bytes = my_key_as_bytes(&key, &len);
+  hashmap_put(hm1, key_bytes, len, value);
+  /* key_bytes may now be freed or reused */
+#+end_src 
+**** Non-flat keys (typed version)
+#+begin_src c
+  typedef struct {
+    int id;
+    char *name; /* pointer */
+  } Key;
+
+  typedef struct {
+    char label[32];
+    int score;
+  } Value;
+
+  /* Declare a typed hashmap */
+  HASHMAP(Key, Value, keymap)
+
+  /* 1. MUST BE DEFINED BY THE USER
+   * Canonical serialization for Key.
+   *
+   * Pointer identity is eliminated by serializing pointed-to data.
+   */
+  uint8_t *keymap_key_bytes(Key *k, size_t *len) {
+    size_t n = strlen(k->name) + 1;
+    /* include terminator */
+    *len = sizeof(int) + n;
+
+    uint8_t *buf = malloc(*len);
+    memcpy(buf, &k->id, sizeof(int));
+    memcpy(buf + sizeof(int), k->name, n);
+
+    return buf;
+  }
+  /* 2. MUST BE DEFINED BY THE USER
+   * This hook is always called exactly once for each buffer returned by keymap_key_bytes().
+   * It may be a no-op in case of non-heap allocated temporary serialized key buffer.
+   * In our current case, we defined keymap_key_bytes to return a heap-allocated buffer,
+   * in order to free it automatically when necessary :
+   */
+  void keymap_tkey_dispose_hook(uint8_t *key){
+    free(key);
+  }
+
+  /* ... */
+
+  keymap_hashmap *hm = keymap_hashmap_new(0xdeadbeef);
+
+  char *name_buf = malloc(...);
+  /* ... fill name_buf... */
+
+  Key key = {.id = 0, .name = name_buf};
+
+  Value *val = malloc(sizeof(Value));
+  strcpy(val->label, "example");
+  val->score = 42;
+
+  /* Insert using typed API */
+  keymap_hashmap_put(hm, &key, val);
+
+  /*
+   * At this point, the hashmap has:
+   * - called keymap_key_bytes()
+   * - hashed the returned bytes
+   * - copied the key bytes internally
+   * - freed the temporary buffer returned by keymap_key_bytes by calling keymap_tkey_dispose
+   */
+
+  /* Lookup */
+  Value *out = keymap_hashmap_get(hm, &key);
+  /* Cleanup */
+  keymap_hashmap_destroy(hm);
+  free(val);
+  free(name_buf);
 #+end_src
 
 *** Notes
