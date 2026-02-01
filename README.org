@@ -112,7 +112,22 @@ It uses separate chaining with linked lists and a 64-bit hash function inspired 
 The implementation is available in two forms:
 
 - a macro-based typed version (*note* : /work-in-progress/)
-- and a simpler, untyped =(void *)->(void *)= based version (*note* : key handling may be wrong when using reference types /work-in-progress/).
+- and a simpler, untyped =(void *)->(void *)= based version.
+
+----------
+
+*Note*: 
+
+In the untyped implementation, *keys are treated as opaque byte sequences*.
+Key equality and hashing operate solely on the provided (pointer, length) pair.
+
+If your logical key is not already a flat, self-contained byte sequence, *it is the caller’s responsibility* to linearize it. 
+
+----------
+
+For example, if a key is a struct containing pointers, you must either:
+1. accept that pointer values participate in key identity,
+2. or provide your own canonical serialization of the key data.
 
 *** Features
 
