@@ -194,6 +194,11 @@ The hasmap *does not* own values.
 You must ensure values remain valid while stored.
 You must free values yourself if they were dynamically allocated.
 
+Keys are copied into freshly allocated memory. Depending on the key policy you choose to enforce with the untyped implementation, you may be confronted with two problems.
+
+– If you provide unlinearized keys (e.g. structs containing pointers), key identity will incorporate pointer values rather than the data they reference. Two logically identical keys allocated at different addresses will be treated as distinct keys.
+– If you provide linearized keys, the fact that keys are copied means this implementation cannot be used as a =tuple= (in particular, a =pair=) indexed by a first element whose value is expected to change over time. Once inserted, key identity is fixed and will not track external mutations.
+
 *** Example
 
 #+begin_src c
