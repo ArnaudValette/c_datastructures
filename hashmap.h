@@ -8,7 +8,6 @@
 
 #define HASHMAP_INITIAL_SIZE (128)
 
-
 /*
 ╰┭━╾┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅╼━┮╮
 ╭╯ datastructures § hashmap → macro based implementation                    ╭╯╿
