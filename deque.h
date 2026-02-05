@@ -1,5 +1,5 @@
-#ifndef DEQUE_H
-#define DEQUE_H
+#ifndef DATASTRUCTURES_DEQUE_H
+#define DATASTRUCTURES_DEQUE_H
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
