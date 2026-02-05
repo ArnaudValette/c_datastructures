@@ -4,9 +4,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define DEQUE_INITIAL_SIZE 128
+#define DATASTRUCTURES_DEQUE_INITIAL_SIZE 128
 
-#ifndef DATASTRUCT_USE_VOID_BASED_DEQUE
+#ifndef DATASTRUCTURES_USE_VOID_BASED_DEQUE
 
 /*
 ╰┭━╾┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅╼━┮╮
@@ -26,7 +26,7 @@
     name##_deque *a = malloc(sizeof(name##_deque));                            \
     if (!a)                                                                    \
       return NULL;                                                             \
-    a->capacity = DEQUE_INITIAL_SIZE;                                          \
+    a->capacity = DATASTRUCTURES_DEQUE_INITIAL_SIZE;                           \
     a->data = malloc(a->capacity * sizeof(type *));                            \
     if (!a->data) {                                                            \
       free(a);                                                                 \
@@ -144,7 +144,7 @@ static deque *deque_create() {
   deque *a = malloc(sizeof(deque));
   if (!a)
     return NULL;
-  a->capacity = DEQUE_INITIAL_SIZE;
+  a->capacity = DATASTRUCTURES_DEQUE_INITIAL_SIZE;
   a->data = malloc(a->capacity * sizeof(void *));
   if (!a->data) {
     free(a);

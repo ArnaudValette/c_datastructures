@@ -36,7 +36,7 @@ By default, the typed macro-based deque is used.
 To enable the generic void * version, define:
 
 #+begin_src c
-#define DATASTRUCT_USE_VOID_BASED_DEQUE
+#define DATASTRUCTURES_USE_VOID_BASED_DEQUE
 #+end_src
 
 before including deque.h.

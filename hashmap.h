@@ -1,12 +1,12 @@
-#ifndef DATASTRUCTURES_HASHING_FUNCS_H
-#define DATASTRUCTURES_HASHING_FUNCS_H
+#ifndef DATASTRUCTURES_HASHMAP_H
+#define DATASTRUCTURES_HASHMAP_H
 #include "crypto.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define HASHMAP_INITIAL_SIZE (128)
+#define DATASTRUCTURES_HASHMAP_INITIAL_SIZE (128)
 
 /*
 ╰┭━╾┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅╼━┮╮
@@ -93,7 +93,7 @@ static bool __hashmap_key_compare(uint8_t *b1, size_t len1, uint8_t *b2,
     name##_hashmap *hm = (name##_hashmap *)malloc(sizeof(name##_hashmap));     \
     if (!hm)                                                                   \
       return NULL;                                                             \
-    hm->width = HASHMAP_INITIAL_SIZE;                                          \
+    hm->width = DATASTRUCTURES_HASHMAP_INITIAL_SIZE;                           \
     hm->seed = seed;                                                           \
     hm->size = 0;                                                              \
     hm->entries = (name **)calloc(hm->width, sizeof(name *));                  \
@@ -339,7 +339,7 @@ static hashmap *hashmap_new(uint64_t seed) {
   hashmap *hm = (hashmap *)malloc(sizeof(hashmap));
   if (!hm)
     return NULL;
-  hm->width = HASHMAP_INITIAL_SIZE;
+  hm->width = DATASTRUCTURES_HASHMAP_INITIAL_SIZE;
   hm->seed = seed;
   hm->size = 0;
   hm->buckets = (entry **)calloc(hm->width, sizeof(entry *));
