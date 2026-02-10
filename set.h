@@ -1,3 +1,28 @@
+/* 
+╰┭━╾┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅╼━┮╮
+╭╯ datastructures § set → TODO                                              ╭╯╿
+╙╼━╾┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄━━╪*/
+/* There are a few problems with this implementation (i.e. DO_NOT_USE) 
+ * We need to switch from a «dup allocated» stringified value implementation 
+ * to an implementation in which we store the object as-is via its pointer.
+ * 
+ * That causes a lot a troubles : as a user, I want both that :
+ * - By reference object storing
+ * - if «a» is in the Set, any object value-equal to «a» is in the Set.
+ *
+ * tl,dr; 
+ * - by reference storage
+ * - by value comparison
+ * 
+ * The current implementation is a degradation from Datastructures.HASHMAP
+ * To fit with requirments, 2 directions:
+ *
+ * 1. store both stringified value and reference, hashmap based indexing 
+ * 2. store only references, the user provides a stringifier function
+ * 
+ */
+
+
 #ifndef DATASTRUCTURES_SET_H
 #define DATASTRUCTURES_SET_H
 #include "crypto.h"
