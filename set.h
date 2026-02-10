@@ -199,8 +199,6 @@ static uint8_t set_contains(set *set, void *key, size_t len) {
 /**
  * Removes the object from the set
  *
- * Frees the internal copy of the object.
- *
  * Returns true if an entry was removed, false if the entry was not found.
  */
 static bool set_remove(set *set, void *key, size_t len) {
